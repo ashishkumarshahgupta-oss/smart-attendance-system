@@ -190,6 +190,26 @@ def get_attendance(attended_on: str | None = None) -> list[dict[str, Any]]:
 	return [dict(row) for row in rows]
 
 
+def get_attendance_summary(attended_on: str | None = None) -> dict[str, Any]:
+	attended_on = attended_on or date.today().isoformat()
+	with _connect() as connection:
+		total_students = connection.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+		present = connection.execute(
+			"SELECT COUNT(*) FROM attendance WHERE attended_on = ? AND status = 'Present'", (attended_on,)
+		).fetchone()[0]
+		absent = connection.execute(
+			"SELECT COUNT(*) FROM attendance WHERE attended_on = ? AND status = 'Absent'", (attended_on,)
+		).fetchone()[0]
+	return {
+		"date": attended_on,
+		"total_students": total_students,
+		"present": present,
+		"absent": absent,
+		"unmarked": max(total_students - present - absent, 0),
+		"attendance_rate": round((present / total_students) * 100, 2) if total_students else 0.0,
+	}
+
+
 def get_attendance_report() -> list[dict[str, Any]]:
 	with _connect() as connection:
 		total_days = connection.execute("SELECT COUNT(DISTINCT attended_on) FROM attendance").fetchone()[0]

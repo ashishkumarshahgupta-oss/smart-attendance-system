@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import base64
+import csv
+import io
 import os
 from functools import wraps
 from pathlib import Path
 
 import cv2
 import numpy as np
-from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, session, url_for
 
-from database import authenticate_user, change_password, create_user, current_period, get_attendance, get_attendance_report, get_students, get_users, mark_attendance, set_attendance
+from database import authenticate_user, change_password, create_user, current_period, get_attendance, get_attendance_report, get_attendance_summary, get_students, get_users, mark_attendance, set_attendance
 from database import add_student
 from register import DATASET_DIR, FACE_CASCADE, MODEL_PATH, train_model
 
@@ -93,7 +95,7 @@ def student_page():
 @app.get("/admin")
 @role_required("teacher")
 def admin_page():
-	return render_template("admin.html", students=get_students(), records=get_attendance(), users=get_users())
+	return render_template("admin.html", students=get_students(), records=get_attendance(), users=get_users(), summary=get_attendance_summary())
 
 
 @app.post("/api/register")
@@ -191,6 +193,17 @@ def admin_change_password():
 		return jsonify({"message": "Password changed successfully."})
 	except (KeyError, TypeError, ValueError) as error:
 		return jsonify({"error": str(error)}), 400
+
+
+@app.get("/admin/export")
+@role_required("teacher")
+def export_attendance():
+	output = io.StringIO()
+	writer = csv.writer(output)
+	writer.writerow(["Student ID", "Student", "Email", "Department", "Year", "Date", "Time", "Period", "Status"])
+	for row in get_attendance():
+		writer.writerow([row["student_id"], row["name"], row["email"], row["department"], row["year"], row["attended_on"], row["attended_at"].split("T")[-1], row["period"], row["status"]])
+	return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=attendance-report.csv"})
 
 
 @app.post("/api/change-password")
