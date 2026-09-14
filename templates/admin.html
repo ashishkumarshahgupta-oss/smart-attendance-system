@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin attendance | Smart Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar"><div class="brand"><span class="brand-mark small">SA</span><span>Smart Attendance</span></div><a class="logout" href="{{ url_for('logout') }}">Log out</a></header>
+  <div class="app-layout">
+    <aside class="sidebar"><p class="sidebar-label">ADMIN WORKSPACE</p><nav class="sidebar-nav"><a class="sidebar-link active" href="#student-details" data-section="student-details"><span class="nav-icon">ST</span>Student details</a><a class="sidebar-link" href="#security-details" data-section="security-details"><span class="nav-icon">SC</span>Security</a><a class="sidebar-link" href="#attendance-details" data-section="attendance-details"><span class="nav-icon">AT</span>Attendance details</a></nav><div class="sidebar-students"><p class="sidebar-label">STUDENT ACCOUNTS</p>{% for user in users if user.role == 'student' %}<div class="sidebar-student"><strong>{{ user.name or user.username }}</strong><span>ID {{ user.student_id or '-' }}</span><small>{{ user.department or 'No department' }} · Year {{ user.year or '-' }}</small></div>{% else %}<p class="sidebar-empty">No student accounts</p>{% endfor %}</div><div class="sidebar-foot"><span class="status-dot"></span>Admin mode</div></aside>
+    <main class="page-shell">
+      <section class="hero-row"><div><p class="eyebrow">ADMIN CONTROL</p><h1>Mark attendance</h1><p class="muted">Set a student as Present or Absent by date, time, and class period.</p></div><div class="date-chip">Manual override</div></section>
+      <section class="admin-grid">
+        <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ATTENDANCE ENTRY</p><h2>Update student status</h2></div></div>
+          <form id="admin-form" class="stack-form">
+            <label>Student<select name="student_id" required>{% for student in students %}<option value="{{ student.id }}">{{ student.id }} - {{ student.name }}</option>{% endfor %}</select></label>
+            <div class="two-col"><label>Date<input type="date" name="date" id="attendance-date" required></label><label>Time<input type="time" name="time" id="attendance-time" required></label></div>
+            <label>Class period<input name="period" placeholder="e.g. Period 2 / 10:00-11:00" required></label>
+            <label>Status<select name="status"><option value="Present">Present</option><option value="Absent">Absent</option></select></label>
+            <button class="button primary" type="submit">Save attendance</button><p id="admin-status" class="camera-status"></p>
+          </form>
+        </article>
+        <article class="panel admin-note"><p class="eyebrow">HOW IT WORKS</p><h2>One record per student per day</h2><p class="muted">Saving a new status for the same student and date updates the existing record. Percentage is calculated from Present days only; Absent days remain visible in the report.</p><div class="status-legend"><span class="present-badge">Present</span><span class="absent-badge">Absent</span></div></article>
+      </section>
+      <section class="panel table-panel" id="student-details"><div class="panel-heading"><div><p class="eyebrow">ACCOUNT MANAGEMENT</p><h2>Student details</h2><p class="muted">Create accounts and review linked student profiles.</p></div></div>
+        <form id="user-form" class="account-form">
+          <label>Username<input name="username" required></label>
+          <label>Password<input type="password" name="password" minlength="6" required></label>
+          <label>Role<select name="role" id="account-role"><option value="student">Student</option><option value="teacher">Teacher</option></select></label>
+          <label class="student-account-field">Student name<input name="name"></label>
+          <label class="student-account-field">Email<input type="email" name="email"></label>
+          <label class="student-account-field">Department<input name="department"></label>
+          <label class="student-account-field">Year<input name="year"></label>
+          <button class="button primary" type="submit">Create account</button>
+        </form>
+        <p id="user-status" class="camera-status"></p>
+        <div class="table-scroll"><table><thead><tr><th>Account</th><th>Student ID</th><th>Student</th><th>Department</th><th>Year</th><th>Role</th></tr></thead><tbody>{% for user in users %}<tr><td>{{ user.username }}</td><td>{{ user.student_id or '-' }}</td><td>{{ user.name or '-' }}</td><td>{{ user.department or '-' }}</td><td>{{ user.year or '-' }}</td><td>{{ user.role|title }}</td></tr>{% endfor %}</tbody></table></div>
+      </section>
+      <section class="panel table-panel" id="security-details"><div class="panel-heading"><div><p class="eyebrow">SECURITY</p><h2>Change admin password</h2><p class="muted">Update the password for the current teacher account.</p></div></div>
+        <form id="password-form" class="account-form password-form">
+          <label>Current password<input type="password" name="current_password" required></label>
+          <label>New password<input type="password" name="new_password" minlength="6" required></label>
+          <label>Confirm new password<input type="password" name="confirm_password" minlength="6" required></label>
+          <button class="button primary" type="submit">Change password</button>
+        </form>
+        <p id="password-status" class="camera-status"></p>
+      </section>
+      <section class="panel table-panel" id="attendance-details"><div class="panel-heading"><div><p class="eyebrow">PERIOD-BASED RECORDS</p><h2>Attendance details</h2><p class="muted">Present and absent status according to each class period.</p></div><a class="button secondary" href="{{ url_for('student_page') }}">Open student page</a></div><div class="table-scroll"><table><thead><tr><th>ID</th><th>Student</th><th>Date</th><th>Time</th><th>Period</th><th>Status</th></tr></thead><tbody>{% for row in records %}<tr><td>{{ row.student_id }}</td><td>{{ row.name }}</td><td>{{ row.attended_on }}</td><td>{{ row.attended_at.split('T')[-1] }}</td><td><strong>{{ row.period or 'Not set' }}</strong></td><td><span class="{{ 'present-badge' if row.status == 'Present' else 'absent-badge' }}">{{ row.status }}</span></td></tr>{% else %}<tr><td colspan="6" class="empty">No attendance records today.</td></tr>{% endfor %}</tbody></table></div></section>
+    </main>
+  </div>
+<script>
+const date = new Date(); document.querySelector('#attendance-date').value = date.toISOString().slice(0, 10); document.querySelector('#attendance-time').value = date.toTimeString().slice(0, 5);
+document.querySelector('#admin-form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); const response = await fetch('/api/admin/attendance', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(Object.fromEntries(form))}); const data = await response.json(); const status = document.querySelector('#admin-status'); status.textContent = data.message || data.error; status.style.color = response.ok ? '#087f78' : '#e05d72'; if (response.ok) setTimeout(() => location.reload(), 600); };
+document.querySelector('#user-form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); const response = await fetch('/api/admin/users', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(Object.fromEntries(form))}); const data = await response.json(); const status = document.querySelector('#user-status'); status.textContent = data.message || data.error; status.style.color = response.ok ? '#087f78' : '#e05d72'; if (response.ok) setTimeout(() => location.reload(), 600); };
+const role = document.querySelector('#account-role'); const studentFields = document.querySelectorAll('.student-account-field'); const updateAccountFields = () => studentFields.forEach(field => { field.style.display = role.value === 'student' ? 'grid' : 'none'; field.querySelector('input').required = role.value === 'student'; }); role.addEventListener('change', updateAccountFields); updateAccountFields();
+document.querySelector('#password-form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); if (form.get('new_password') !== form.get('confirm_password')) { document.querySelector('#password-status').textContent = 'New passwords do not match.'; document.querySelector('#password-status').style.color = '#e05d72'; return; } const payload = {current_password: form.get('current_password'), new_password: form.get('new_password')}; const response = await fetch('/api/admin/change-password', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); const data = await response.json(); const status = document.querySelector('#password-status'); status.textContent = data.message || data.error; status.style.color = response.ok ? '#087f78' : '#e05d72'; if (response.ok) event.target.reset(); };
+document.querySelectorAll('.sidebar-link[data-section]').forEach(link => link.addEventListener('click', () => { document.querySelectorAll('.sidebar-link[data-section]').forEach(item => item.classList.remove('active')); link.classList.add('active'); }));
+const adminSections = document.querySelectorAll('#student-details, #security-details, #attendance-details'); const showAdminSection = id => { adminSections.forEach(section => section.classList.toggle('section-hidden', section.id !== id)); document.querySelectorAll('.sidebar-link[data-section]').forEach(link => link.classList.toggle('active', link.dataset.section === id)); window.scrollTo({top: 0, behavior: 'smooth'}); }; document.querySelectorAll('.sidebar-link[data-section]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); showAdminSection(link.dataset.section); })); showAdminSection('student-details');
+</script>
+</body>
+</html>

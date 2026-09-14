@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login | Smart Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <div class="brand-mark">SA</div>
+    <p class="eyebrow">SMART ATTENDANCE</p>
+    <h1>Welcome back.</h1>
+    <p class="muted">Choose your role to open the correct workspace.</p>
+    <form method="post" class="login-form">
+      <label>Login as<select name="role" required><option value="student">Student</option><option value="teacher">Teacher</option></select></label>
+      <label>Username<input name="username" autocomplete="username" required autofocus></label>
+      <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <button class="button primary" type="submit">Sign in <span>-></span></button>
+    </form>
+    <p class="login-hint">Teacher and student accounts have separate access.</p>
+  </main>
+</body>
+</html>

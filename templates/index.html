@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard | Smart Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark small">SA</span><span>Smart Attendance</span></div>
+    <a class="logout" href="{{ url_for('logout') }}">Log out</a>
+  </header>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <p class="sidebar-label">STUDENT WORKSPACE</p>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link active" href="#student-details" data-section="student-details"><span class="nav-icon">ID</span>Student details</a>
+        <a class="sidebar-link" href="#attendance-details" data-section="attendance-details"><span class="nav-icon">AT</span>Attendance details</a>
+        <a class="sidebar-link" href="#percentage-details" data-section="percentage-details"><span class="nav-icon">%</span>Percentage details</a>
+        <a class="sidebar-link" href="#security-details" data-section="security-details"><span class="nav-icon">SC</span>Security</a>
+      </nav>
+      <div class="sidebar-foot"><span class="status-dot"></span>System online</div>
+    </aside>
+    <main class="page-shell">
+    <section class="hero-row">
+      <div><p class="eyebrow">OVERVIEW</p><h1>Attendance command center</h1><p class="muted">Register faces, verify presence, and monitor participation.</p></div>
+      <div class="date-chip" id="today"></div>
+    </section>
+    <section class="workspace-grid" id="student-details">
+      <article class="panel camera-panel">
+        <div class="panel-heading"><div><p class="eyebrow">LIVE CAMERA</p><h2>Face verification</h2></div><span class="live-dot">Ready</span></div>
+        <div class="video-wrap"><video id="camera" autoplay muted playsinline></video><div id="camera-placeholder">Camera preview</div></div>
+        <div class="camera-actions"><button class="button primary" id="start-camera">Start camera</button><button class="button secondary" id="stop-camera" disabled>Stop</button></div>
+        <p class="camera-status" id="camera-status">Start the camera to mark recognized students present.</p>
+      </article>
+      <article class="panel register-panel">
+        <div class="panel-heading"><div><p class="eyebrow">NEW PROFILE</p><h2>Register student</h2></div></div>
+        <form id="register-form" class="stack-form">
+          <label>Name<input name="name" required></label>
+          <label>Email<input type="email" name="email" required></label>
+          <div class="two-col"><label>Department<input name="department" required></label><label>Year<input name="year" required></label></div>
+          <button class="button primary" type="submit">Create profile</button>
+        </form>
+        <div id="capture-progress" class="capture-progress hidden"><strong>Look at the camera</strong><span id="capture-count">0 / 5 samples</span></div>
+      </article>
+    </section>
+    <section class="panel table-panel" id="attendance-details"><div class="panel-heading"><div><p class="eyebrow">TODAY</p><h2>Attendance details</h2></div><button class="button secondary" id="refresh">Refresh data</button></div><div class="table-scroll"><table><thead><tr><th>ID</th><th>Student</th><th>Department</th><th>Year</th><th>Date</th><th>Time</th><th>Hours period</th></tr></thead><tbody id="records"></tbody></table></div></section>
+    <section class="panel table-panel view-section" id="percentage-details"><div class="panel-heading"><div><p class="eyebrow">REPORTING</p><h2>Percentage details</h2><p class="muted">A clear view of present and absent days.</p></div></div><div class="metric-grid"><div class="metric-card present-metric"><span>Present</span><strong id="present-percent">0%</strong><small id="present-days">0 days</small></div><div class="metric-card absent-metric"><span>Absent</span><strong id="absent-percent">0%</strong><small id="absent-days">0 days</small></div><div class="metric-card neutral-metric"><span>Recorded days</span><strong id="recorded-days">0</strong><small>Attendance period</small></div></div><div class="split-bar"><span id="present-bar"></span><span id="absent-bar"></span></div><div class="split-labels"><span>Present</span><span>Absent</span></div><div class="table-scroll"><table><thead><tr><th>ID</th><th>Student</th><th>Present</th><th>Absent</th><th>Percentage</th></tr></thead><tbody id="report"></tbody></table></div></section>
+    <section class="panel table-panel" id="security-details"><div class="panel-heading"><div><p class="eyebrow">SECURITY</p><h2>Change student password</h2><p class="muted">Keep your student account secure.</p></div></div><form id="student-password-form" class="password-form"><label>Current password<input type="password" name="current_password" required></label><label>New password<input type="password" name="new_password" minlength="6" required></label><label>Confirm new password<input type="password" name="confirm_password" minlength="6" required></label><button class="button primary" type="submit">Change password</button></form><p id="student-password-status" class="camera-status"></p></section>
+  </main>
+  </div>
+<script>
+const video = document.querySelector('#camera');
+const canvas = document.createElement('canvas');
+let stream = null, recognitionTimer = null, captureTimer = null;
+const status = document.querySelector('#camera-status');
+const setStatus = text => status.textContent = text;
+const frame = () => { canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); return canvas.toDataURL('image/jpeg', .8); };
+async function startCamera() {
+  try { stream = await navigator.mediaDevices.getUserMedia({video: true}); video.srcObject = stream; document.querySelector('#camera-placeholder').style.display = 'none'; document.querySelector('#start-camera').disabled = true; document.querySelector('#stop-camera').disabled = false; setStatus('Camera active. Looking for a registered face...'); recognitionTimer = setInterval(recognize, 2200); }
+  catch (error) { setStatus('Camera permission is required for face verification.'); }
+}
+function stopCamera() { if (stream) stream.getTracks().forEach(track => track.stop()); stream = null; clearInterval(recognitionTimer); document.querySelector('#start-camera').disabled = false; document.querySelector('#stop-camera').disabled = true; setStatus('Camera stopped.'); }
+async function recognize() { if (!video.videoWidth) return; const response = await fetch('/api/recognize', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({image:frame()})}); const data = await response.json(); if (data.recognized) { setStatus(`${data.name}: ${data.marked ? 'Present marked' : 'Already marked'} for ${data.period}`); refreshData(); } }
+async function refreshData() { const data = await (await fetch('/api/data')).json(); document.querySelector('#records').innerHTML = data.records.map(row => `<tr><td>${row.student_id}</td><td>${row.name}</td><td>${row.department}</td><td>${row.year}</td><td>${row.attended_on}</td><td>${row.attended_at.split('T').pop()}</td><td>${row.period}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No attendance recorded today.</td></tr>'; document.querySelector('#report').innerHTML = data.report.map(row => `<tr><td>${row.id}</td><td>${row.name}</td><td>${row.present_days}</td><td>${row.absent_days}</td><td><strong>${row.percentage.toFixed(2)}%</strong></td></tr>`).join('') || '<tr><td colspan="5" class="empty">No students registered.</td></tr>'; const present = data.report.reduce((sum, row) => sum + row.present_days, 0); const absent = data.report.reduce((sum, row) => sum + row.absent_days, 0); const total = present + absent; const presentPercent = total ? Math.round(present / total * 100) : 0; const absentPercent = total ? 100 - presentPercent : 0; document.querySelector('#present-percent').textContent = `${presentPercent}%`; document.querySelector('#absent-percent').textContent = `${absentPercent}%`; document.querySelector('#present-days').textContent = `${present} days`; document.querySelector('#absent-days').textContent = `${absent} days`; document.querySelector('#recorded-days').textContent = data.report.length ? Math.max(...data.report.map(row => row.total_days)) : 0; document.querySelector('#present-bar').style.width = `${presentPercent}%`; document.querySelector('#absent-bar').style.width = `${absentPercent}%`; }
+document.querySelector('#start-camera').onclick = startCamera; document.querySelector('#stop-camera').onclick = stopCamera; document.querySelector('#refresh').onclick = refreshData; document.querySelector('#today').textContent = new Date().toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
+document.querySelector('#register-form').onsubmit = async event => { event.preventDefault(); if (!stream) { setStatus('Start the camera before registering a face.'); return; } const form = new FormData(event.target); const response = await fetch('/api/register', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(Object.fromEntries(form))}); const data = await response.json(); if (!response.ok) { setStatus(data.error || 'Registration failed.'); return; } const progress = document.querySelector('#capture-progress'); progress.classList.remove('hidden'); let count = 0; clearInterval(captureTimer); captureTimer = setInterval(async () => { if (count >= 5) { clearInterval(captureTimer); progress.classList.add('hidden'); setStatus('Profile created and face model trained.'); event.target.reset(); refreshData(); return; } const result = await (await fetch(`/api/capture/${data.student_id}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({image:frame()})})).json(); if (result.captured) { count = result.count; document.querySelector('#capture-count').textContent = `${Math.min(count, 5)} / 5 samples`; } }, 700); };
+refreshData();
+document.querySelectorAll('.sidebar-link').forEach(link => link.addEventListener('click', () => { document.querySelectorAll('.sidebar-link').forEach(item => item.classList.remove('active')); link.classList.add('active'); }));
+const sections = document.querySelectorAll('#student-details, #attendance-details, #percentage-details, #security-details'); const showSection = id => { sections.forEach(section => section.classList.toggle('section-hidden', section.id !== id)); document.querySelectorAll('.sidebar-link[data-section]').forEach(link => link.classList.toggle('active', link.dataset.section === id)); window.scrollTo({top: 0, behavior: 'smooth'}); }; document.querySelectorAll('.sidebar-link[data-section]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); showSection(link.dataset.section); })); showSection('student-details');
+document.querySelector('#student-password-form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); const status = document.querySelector('#student-password-status'); if (form.get('new_password') !== form.get('confirm_password')) { status.textContent = 'New passwords do not match.'; status.style.color = '#e05d72'; return; } const response = await fetch('/api/change-password', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({current_password:form.get('current_password'), new_password:form.get('new_password')})}); const data = await response.json(); status.textContent = data.message || data.error; status.style.color = response.ok ? '#087f78' : '#e05d72'; if (response.ok) event.target.reset(); };
+</script>
+</body>
+</html>

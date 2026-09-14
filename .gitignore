@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+attendance.db
+dataset/*.jpg
+dataset/*.yml
+dataset/labels.csv
+.env
+.vscode/
